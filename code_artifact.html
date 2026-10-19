@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五年级历史时空大冒险 - 复习小游戏</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti for winning effect -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fef08a 100%);
+            min-height: 100vh;
+        }
+
+        .bounce-animation {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+            50% { transform: translateY(0); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+        }
+
+        .card-flip {
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            backface-visibility: hidden;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        .monopoly-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 6px;
+        }
+    </style>
+</head>
+<body class="p-2 sm:p-4 text-slate-800">
+
+    <!-- App Container -->
+    <div class="max-w-4xl mx-auto bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl border-4 border-amber-300 p-4 sm:p-6 mb-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 relative">
+            <div class="inline-block bg-amber-400 text-amber-900 px-6 py-2 rounded-full font-bold text-lg sm:text-2xl shadow-md border-2 border-amber-500 mb-2">
+                <i class="fa-solid fa-hourglass-half mr-2"></i>五年级历史时空大冒险
+            </div>
+            <p class="text-sm sm:text-base text-amber-800 font-medium">轻松、有趣的历史总复习课堂助手</p>
+            
+            <!-- Quick Settings / Preset Selector -->
+            <button onclick="toggleCustomModal()" class="absolute right-0 top-0 bg-amber-100 hover:bg-amber-200 text-amber-800 p-2 sm:px-4 sm:py-2 rounded-2xl text-xs sm:text-sm font-bold border border-amber-300 transition flex items-center gap-1 shadow-sm">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span class="hidden sm:inline">编辑题目</span>
+            </button>
+        </header>
+
+        <!-- Game Mode Tabs -->
+        <div class="flex justify-center gap-2 sm:gap-4 mb-6">
+            <button id="tab-monopoly" onclick="switchTab('monopoly')" class="flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-500 text-white shadow-amber-200 scale-105">
+                <i class="fa-solid fa-dice"></i> 时空大富翁
+            </button>
+            <button id="tab-matching" onclick="switchTab('matching')" class="flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-100 text-amber-800 hover:bg-amber-200">
+                <i class="fa-solid fa-puzzle-piece"></i> 记忆连连看
+            </button>
+        </div>
+
+        <!-- Mode 1: Monopoly Game -->
+        <div id="game-monopoly" class="space-y-6">
+            <!-- Board Top Controls -->
+            <div class="flex flex-wrap items-center justify-between bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-rose-400 flex items-center justify-center text-white text-xl shadow">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-bold">当前玩家</div>
+                        <div class="font-bold text-rose-600 sm:text-lg">历史探险家</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-center">
+                        <span class="text-xs text-slate-500 font-bold block">探险积分</span>
+                        <span id="score-display" class="font-bold text-xl text-amber-600">0</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-xs text-slate-500 font-bold block">当前位置</span>
+                        <span id="position-display" class="font-bold text-xl text-indigo-600">起点</span>
+                    </div>
+                </div>
+
+                <!-- Roll Dice Button -->
+                <button id="roll-btn" onclick="rollDice()" class="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold py-2 px-6 rounded-2xl shadow-lg border-b-4 border-teal-700 active:translate-y-0.5 active:border-b-0 transition flex items-center gap-2">
+                    <i class="fa-solid fa-dice-five text-xl"></i>
+                    <span>掷骰子</span>
+                </button>
+            </div>
+
+            <!-- Dice Result Area -->
+            <div id="dice-result-container" class="hidden text-center py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                <p id="dice-text" class="text-indigo-900 font-bold text-lg"></p>
+            </div>
+
+            <!-- Monopoly Board -->
+            <div class="relative bg-amber-100 p-3 rounded-2xl border-4 border-amber-300 shadow-inner">
+                <div id="board-grid" class="monopoly-grid aspect-square max-w-[500px] mx-auto">
+                    <!-- Board Tiles will be populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode 2: Matching Game -->
+        <div id="game-matching" class="hidden space-y-6">
+            <div class="flex items-center justify-between bg-amber-50 p-4 rounded-2xl border-2 border-amber-200">
+                <div>
+                    <h3 class="font-bold text-amber-900">历史记忆翻牌连连看</h3>
+                    <p class="text-xs text-amber-700">将相关的“历史人物/事件”与“成就/含义”进行两两匹配！</p>
+                </div>
+                <button onclick="initMatchingGame()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-xl transition shadow">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> 重新洗牌
+                </button>
+            </div>
+
+            <div id="matching-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
+                <!-- Cards injected by JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-4 border-amber-400 relative animate-fade-in">
+            <div class="text-center mb-4">
+                <span class="inline-block bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full mb-2">
+                    <i class="fa-solid fa-circle-question mr-1"></i> 历史挑战题
+                </span>
+                <h3 id="quiz-question" class="text-lg sm:text-xl font-bold text-slate-800 mt-1">题目加载中...</h3>
+            </div>
+
+            <div id="quiz-options" class="space-y-3 mb-4">
+                <!-- Options injected by JS -->
+            </div>
+
+            <div id="quiz-feedback" class="hidden text-center p-3 rounded-2xl font-bold mb-3"></div>
+
+            <button id="quiz-close-btn" onclick="closeQuizModal()" class="hidden w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl transition shadow">
+                继续冒险 <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Question / Preset Modal -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border-4 border-amber-400 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                <h3 class="text-xl font-bold text-amber-900"><i class="fa-solid fa-sliders mr-2"></i>课程与题目设置</h3>
+                <button onclick="toggleCustomModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Preset Selection -->
+            <div class="mb-6 bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                <label class="block text-sm font-bold text-amber-900 mb-2">快速选择内置库 / 教材版本：</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button onclick="loadPreset('kssr5')" class="p-3 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left text-xs font-bold text-amber-900 transition flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark text-amber-500 text-lg"></i>
+                        <div>
+                            <div>马来西亚 KSSR 五年级</div>
+                            <div class="text-[10px] text-slate-500 font-normal">包含：国家独立、王室、国家领袖等</div>
+                        </div>
+                    </button>
+                    <button onclick="loadPreset('general')" class="p-3 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left text-xs font-bold text-amber-900 transition flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-amber-500 text-lg"></i>
+                        <div>
+                            <div>通用中国/世界历史基础</div>
+                            <div class="text-[10px] text-slate-500 font-normal">包含：朝代、古遗迹、著名历史常识</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Question Input Instructions -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-bold text-slate-700">大富翁问答题库 (JSON或简易格式)：</label>
+                    <button onclick="resetQuestionsToDefault()" class="text-xs text-rose-500 hover:underline">恢复默认题目</button>
+                </div>
+                <textarea id="custom-questions-text" rows="8" class="w-full p-3 text-xs border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none font-mono" placeholder="可直接修改或粘贴题目..."></textarea>
+                <p class="text-[11px] text-slate-400 mt-1">格式说明：可按照内置格式轻松增删修改题目。</p>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="toggleCustomModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-300">取消</button>
+                <button onclick="saveCustomQuestions()" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl shadow">保存并应用</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default Preset Data
+        const PRESETS = {
+            // Preset 1: Malaysia KSSR Primary 5 History
+            kssr5: [
+                {
+                    q: "马来西亚的国花是什么？",
+                    options: ["大王花", "大红花 (木槿)", "胡姬花", "向日葵"],
+                    answer: 1,
+                    explanation: "大红花（Bunga Raya）于1960年被选为马来西亚的国花，五片花瓣代表国家原则。"
+                },
+                {
+                    q: "被称为“马来西亚独立之父”的首任首相是谁？",
+                    options: ["敦阿都拉萨", "敦胡先翁", "东姑阿都拉曼", "敦马哈迪"],
+                    answer: 2,
+                    explanation: "东姑阿都拉曼（Tunku Abdul Rahman）领导国家走向独立，被称为“独立之父”。"
+                },
+                {
+                    q: "马来西亚于哪一年正式成立？",
+                    options: ["1957年", "1963年", "1948年", "1970年"],
+                    answer: 1,
+                    explanation: "1963年9月16日，马来亚联合邦、沙巴、砂拉越及新加坡（后退出）组成了马来西亚。"
+                },
+                {
+                    q: "国家原则（Rukun Negara）共有几项？",
+                    options: ["3项", "4项", "5项", "6项"],
+                    answer: 2,
+                    explanation: "国家原则共有5项，第一项是“信奉上苍”。"
+                },
+                {
+                    q: "马六甲王朝著名的抗击葡萄牙侵略抵抗英雄是谁？",
+                    options: ["Hang Tuah (汉都亚)", "Hang Jebat (汉惹拔)", "Tun Perak (敦白力)", "Rentap (仁答)"],
+                    answer: 0,
+                    explanation: "汉都亚是马六甲王朝最著名的海军陆战将军与忠臣英雄。"
+                },
+                {
+                    q: "马来西亚的元首称号是什么？",
+                    options: ["苏丹", "最高元首 (Yang di-Pertuan Agong)", "严端", "拉惹"],
+                    answer: 1,
+                    explanation: "马来西亚实行君主立宪制，国家最高元首每五年由九位州统治者轮流选出。"
+                }
+            ],
+            // Preset 2: General Asian & World History
+            general: [
+                {
+                    q: "万里长城主要是为了防御哪个方向的游牧民族而修建的？",
+                    options: ["南方", "北方", "东方", "西方"],
+                    answer: 1,
+                    explanation: "长城主要修建于中国北方，用以抵御北方游牧民族的骑兵入侵。"
+                },
+                {
+                    q: "古代“丝绸之路”的主要起点是哪个古都？",
+                    options: ["北京", "长安 (西安)", "洛阳", "南京"],
+                    answer: 1,
+                    explanation: "汉代张骞出使西域开辟了丝绸之路，起点为当时的都城长安。"
+                },
+                {
+                    q: "世界上现存最早的造纸术发明于哪个国家？",
+                    options: ["古埃及", "中国", "古印度", "巴比伦"],
+                    answer: 1,
+                    explanation: "东汉蔡伦改进了造纸术，是中国古代四大发明之一。"
+                },
+                {
+                    q: "古代四大文明古国中，位于两河流域的是哪一个？",
+                    options: ["古埃及", "古巴比伦", "古印度", "中国"],
+                    answer: 1,
+                    explanation: "古巴比伦文明诞生于底格里斯河和幼发拉底河（两河流域）。"
+                },
+                {
+                    q: "明代著名航海家郑和一共几次下西洋？",
+                    options: ["3次", "5次", "7次", "10次"],
+                    answer: 2,
+                    explanation: "郑和在明朝永乐、宣德年间先后7次率领船队下西洋，访问了30多个国家和地区。"
+                }
+            ]
+        };
+
+        // Matching Card Pair Presets
+        const MATCHING_PAIRS = [
+            { textA: "东姑阿都拉曼", textB: "独立之父" },
+            { textA: "大红花", textB: "马来西亚国花" },
+            { textA: "1957年8月31日", textB: "马来亚独立日" },
+            { textA: "最高元首", textB: "国家最高统治者" },
+            { textA: "国家原则", textB: "共有 5 项条文" },
+            { textA: "汉都亚 (Hang Tuah)", textB: "马六甲传奇武士" }
+        ];
+
+        // Global State
+        let currentQuestions = [...PRESETS.kssr5];
+        let currentPosition = 0;
+        let score = 0;
+        let isDiceRolling = false;
+
+        // Board Tiles layout (20 tiles total around perimeter of 6x6 grid)
+        const BOARD_SIZE = 6;
+        const totalTiles = 20;
+        // Tile Index mapping to Grid Coordinates (row, col) 1-based
+        const tileCoords = [
+            {r:6, c:1, type:'start', label:'起点', icon:'fa-flag-checkered', color:'bg-emerald-500 text-white'},
+            {r:6, c:2, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:6, c:3, type:'bonus', label:'好运加分', icon:'fa-star', color:'bg-yellow-200 text-yellow-800'},
+            {r:6, c:4, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:6, c:5, type:'event', label:'时空卡顿', icon:'fa-hourglass-start', color:'bg-purple-100 text-purple-800'},
+            {r:6, c:6, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            
+            {r:5, c:6, type:'bonus', label:'好运加分', icon:'fa-gift', color:'bg-yellow-200 text-yellow-800'},
+            {r:4, c:6, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:3, c:6, type:'trap', label:'倒退2步', icon:'fa-backward', color:'bg-rose-100 text-rose-800'},
+            {r:2, c:6, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:1, c:6, type:'portal', label:'时空传送', icon:'fa-bolt', color:'bg-indigo-500 text-white'},
+
+            {r:1, c:5, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:1, c:4, type:'bonus', label:'积分翻倍', icon:'fa-coins', color:'bg-yellow-300 text-yellow-900'},
+            {r:1, c:3, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:1, c:2, type:'trap', label:'扣减积分', icon:'fa-minus-circle', color:'bg-rose-200 text-rose-900'},
+            {r:1, c:1, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+
+            {r:2, c:1, type:'bonus', label:'好运加分', icon:'fa-smile', color:'bg-yellow-200 text-yellow-800'},
+            {r:3, c:1, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'},
+            {r:4, c:1, type:'portal', label:'前进3步', icon:'fa-forward', color:'bg-sky-200 text-sky-800'},
+            {r:5, c:1, type:'quiz', label:'历史问答', icon:'fa-question', color:'bg-amber-100 text-amber-800'}
+        ];
+
+        // Initialize on load
+        window.onload = function() {
+            renderBoard();
+            updateUI();
+            initMatchingGame();
+            document.getElementById('custom-questions-text').value = JSON.stringify(currentQuestions, null, 2);
+        };
+
+        // Render Monopoly Board
+        function renderBoard() {
+            const boardEl = document.getElementById('board-grid');
+            boardEl.innerHTML = '';
+
+            // Create 36 cells (6x6)
+            for (let r = 1; r <= 6; r++) {
+                for (let c = 1; c <= 6; c++) {
+                    const tileIndex = tileCoords.findIndex(t => t.r === r && t.c === c);
+                    
+                    const cell = document.createElement('div');
+                    cell.style.gridRow = r;
+                    cell.style.gridColumn = c;
+
+                    if (tileIndex !== -1) {
+                        // Outer Ring Tile
+                        const tile = tileCoords[tileIndex];
+                        cell.className = `relative rounded-xl p-1 flex flex-col items-center justify-center text-center shadow-sm border border-amber-200 transition-all ${tile.color}`;
+                        cell.id = `tile-${tileIndex}`;
+
+                        cell.innerHTML = `
+                            <i class="fa-solid ${tile.icon} text-xs sm:text-sm"></i>
+                            <span class="text-[9px] sm:text-xs font-bold leading-tight mt-0.5">${tile.label}</span>
+                            <span class="text-[8px] opacity-60">#${tileIndex}</span>
+                        `;
+
+                        // Render Player Marker if present
+                        if (tileIndex === currentPosition) {
+                            cell.appendChild(createPlayerMarker());
+                        }
+                    } else {
+                        // Inner empty area
+                        cell.className = 'bg-amber-50/50 rounded-xl border border-dashed border-amber-200/50 flex items-center justify-center';
+                        if (r === 3 && c === 3) {
+                            // Middle Logo Area
+                            cell.style.gridRow = "3 / span 2";
+                            cell.style.gridColumn = "3 / span 2";
+                            cell.className = "bg-amber-200/40 rounded-2xl flex flex-col items-center justify-center p-2 text-center border-2 border-amber-300/60";
+                            cell.innerHTML = `
+                                <i class="fa-solid fa-crown text-2xl text-amber-500 bounce-animation mb-1"></i>
+                                <span class="text-xs font-bold text-amber-900">历史知识大富翁</span>
+                            `;
+                        }
+                    }
+
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function createPlayerMarker() {
+            const marker = document.createElement('div');
+            marker.id = 'player-marker';
+            marker.className = 'absolute -top-2 -right-2 bg-rose-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-white text-xs z-10 bounce-animation';
+            marker.innerHTML = '<i class="fa-solid fa-user-astronaut"></i>';
+            return marker;
+        }
+
+        // Roll Dice Function
+        function rollDice() {
+            if (isDiceRolling) return;
+            isDiceRolling = true;
+
+            const rollBtn = document.getElementById('roll-btn');
+            rollBtn.disabled = true;
+            rollBtn.classList.add('opacity-50');
+
+            const resultContainer = document.getElementById('dice-result-container');
+            const resultText = document.getElementById('dice-text');
+            resultContainer.classList.remove('hidden');
+            
+            let count = 0;
+            const diceInterval = setInterval(() => {
+                const tempRoll = Math.floor(Math.random() * 6) + 1;
+                resultText.innerHTML = `<i class="fa-solid fa-dice text-amber-500 mr-2"></i>掷骰中: ${tempRoll}`;
+                count++;
+
+                if (count > 10) {
+                    clearInterval(diceInterval);
+                    const finalRoll = Math.floor(Math.random() * 6) + 1;
+                    resultText.innerHTML = `<i class="fa-solid fa-dice text-indigo-600 mr-2 text-xl"></i>你掷出了 <span class="text-2xl text-indigo-600 font-extrabold">${finalRoll}</span> 点！`;
+                    
+                    movePlayer(finalRoll);
+                }
+            }, 80);
+        }
+
+        // Move Player Step by Step
+        function movePlayer(steps) {
+            let stepsLeft = steps;
+
+            const moveInterval = setInterval(() => {
+                currentPosition = (currentPosition + 1) % totalTiles;
+                updateMarkerPosition();
+
+                // Give small points for passing Start
+                if (currentPosition === 0) {
+                    score += 20;
+                    updateUI();
+                }
+
+                stepsLeft--;
+                if (stepsLeft <= 0) {
+                    clearInterval(moveInterval);
+                    isDiceRolling = false;
+                    document.getElementById('roll-btn').disabled = false;
+                    document.getElementById('roll-btn').classList.remove('opacity-50');
+                    
+                    // Trigger Tile Event after landing
+                    setTimeout(handleTileEvent, 400);
+                }
+            }, 250);
+        }
+
+        function updateMarkerPosition() {
+            const oldMarker = document.getElementById('player-marker');
+            if (oldMarker) oldMarker.remove();
+
+            const currentTileEl = document.getElementById(`tile-${currentPosition}`);
+            if (currentTileEl) {
+                currentTileEl.appendChild(createPlayerMarker());
+            }
+            document.getElementById('position-display').innerText = `#${currentPosition} ${tileCoords[currentPosition].label}`;
+        }
+
+        // Handle Event on Landed Tile
+        function handleTileEvent() {
+            const tile = tileCoords[currentPosition];
+
+            switch(tile.type) {
+                case 'quiz':
+                    triggerQuizModal();
+                    break;
+                case 'bonus':
+                    score += 30;
+                    showTemporaryFeedback('🌟 幸运格！积分 +30', 'bg-yellow-100 text-yellow-800');
+                    confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+                    break;
+                case 'trap':
+                    score = Math.max(0, score - 15);
+                    showTemporaryFeedback('⚠️ 遭遇陷阱！积分 -15', 'bg-rose-100 text-rose-800');
+                    break;
+                case 'portal':
+                    showTemporaryFeedback('⚡ 时空传送！随机前进 2 步', 'bg-indigo-100 text-indigo-800');
+                    setTimeout(() => movePlayer(2), 1000);
+                    break;
+                case 'event':
+                    showTemporaryFeedback('⏳ 历史事件感悟：保持思考，下次掷骰积分加倍！', 'bg-purple-100 text-purple-800');
+                    score += 10;
+                    break;
+                default:
+                    showTemporaryFeedback('🚩 经过起点，加油！', 'bg-emerald-100 text-emerald-800');
+            }
+            updateUI();
+        }
+
+        function showTemporaryFeedback(msg, cssClasses) {
+            const resultContainer = document.getElementById('dice-result-container');
+            const resultText = document.getElementById('dice-text');
+            resultContainer.classList.remove('hidden');
+            resultText.className = `font-bold text-sm sm:text-base py-1 px-3 rounded-lg inline-block ${cssClasses}`;
+            resultText.innerHTML = msg;
+        }
+
+        // Quiz Modal
+        function triggerQuizModal() {
+            if (currentQuestions.length === 0) {
+                alert('题库为空，请在“编辑题目”中添加题目！');
+                return;
+            }
+
+            // Pick a random question
+            const qObj = currentQuestions[Math.floor(Math.random() * currentQuestions.length)];
+            
+            document.getElementById('quiz-question').innerText = qObj.q;
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('quiz-close-btn').classList.add('hidden');
+
+            qObj.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50 font-medium text-sm transition flex items-center gap-3';
+                btn.innerHTML = `
+                    <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">${String.fromCharCode(65 + idx)}</span>
+                    <span>${opt}</span>
+                `;
+                btn.onclick = () => checkAnswer(idx, qObj.answer, qObj.explanation, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+            document.getElementById('quiz-modal').classList.add('flex');
+        }
+
+        function checkAnswer(selectedIdx, correctIdx, explanation, btnEl) {
+            const optionsContainer = document.getElementById('quiz-options');
+            const buttons = optionsContainer.querySelectorAll('button');
+            
+            // Disable all buttons
+            buttons.forEach(b => b.disabled = true);
+
+            const feedbackEl = document.getElementById('quiz-feedback');
+            feedbackEl.classList.remove('hidden');
+
+            if (selectedIdx === correctIdx) {
+                btnEl.classList.remove('border-slate-200');
+                btnEl.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-900');
+                
+                feedbackEl.className = 'text-center p-3 rounded-xl font-bold mb-3 text-sm bg-emerald-100 text-emerald-800';
+                feedbackEl.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> 回答正确！积分 +50 分<br><span class="text-xs font-normal opacity-90">${explanation}</span>`;
+                
+                score += 50;
+                confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
+            } else {
+                btnEl.classList.remove('border-slate-200');
+                btnEl.classList.add('border-rose-500', 'bg-rose-50', 'text-rose-900');
+
+                // Highlight correct one
+                buttons[correctIdx].classList.add('border-emerald-500', 'bg-emerald-50');
+
+                feedbackEl.className = 'text-center p-3 rounded-xl font-bold mb-3 text-sm bg-rose-100 text-rose-800';
+                feedbackEl.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1"></i> 太可惜啦，正确答案是：${buttons[correctIdx].innerText}<br><span class="text-xs font-normal opacity-90">${explanation}</span>`;
+            }
+
+            updateUI();
+            document.getElementById('quiz-close-btn').classList.remove('hidden');
+        }
+
+        function closeQuizModal() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+            document.getElementById('quiz-modal').classList.remove('flex');
+        }
+
+        function updateUI() {
+            document.getElementById('score-display').innerText = score;
+        }
+
+        // Mode 2: Matching Game Logic
+        let flippedCards = [];
+        let matchedCount = 0;
+
+        function initMatchingGame() {
+            const grid = document.getElementById('matching-grid');
+            grid.innerHTML = '';
+            flippedCards = [];
+            matchedCount = 0;
+
+            // Generate card list from pairs
+            let cardList = [];
+            MATCHING_PAIRS.forEach((pair, index) => {
+                cardList.push({ id: index, text: pair.textA, pairId: index });
+                cardList.push({ id: index, text: pair.textB, pairId: index });
+            });
+
+            // Shuffle cards
+            cardList.sort(() => Math.random() - 0.5);
+
+            cardList.forEach((item, i) => {
+                const card = document.createElement('div');
+                card.className = 'card-flip h-24 sm:h-28 cursor-pointer';
+                card.innerHTML = `
+                    <div class="card-inner w-full h-full relative rounded-2xl shadow-md border-2 border-amber-300">
+                        <!-- Front (Hidden State) -->
+                        <div class="card-front absolute inset-0 bg-gradient-to-br from-amber-400 to-amber-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner">
+                            <i class="fa-solid fa-hourglass-start text-amber-200 opacity-80"></i>
+                        </div>
+                        <!-- Back (Revealed Text) -->
+                        <div class="card-back absolute inset-0 bg-white rounded-2xl p-2 flex items-center justify-center text-center text-xs sm:text-sm font-bold text-amber-900 border-2 border-amber-400">
+                            ${item.text}
+                        </div>
+                    </div>
+                `;
+
+                card.onclick = () => flipCard(card, item);
+                grid.appendChild(card);
+            });
+        }
+
+        function flipCard(cardEl, item) {
+            const inner = cardEl.querySelector('.card-inner');
+            if (inner.classList.contains('flipped') || flippedCards.length >= 2) return;
+
+            inner.classList.add('flipped');
+            flippedCards.push({ cardEl, item });
+
+            if (flippedCards.length === 2) {
+                const [first, second] = flippedCards;
+
+                if (first.item.pairId === second.item.pairId) {
+                    // Match Success
+                    matchedCount++;
+                    score += 30;
+                    updateUI();
+                    
+                    setTimeout(() => {
+                        first.cardEl.classList.add('opacity-40', 'pointer-events-none');
+                        second.cardEl.classList.add('opacity-40', 'pointer-events-none');
+                        flippedCards = [];
+
+                        if (matchedCount === MATCHING_PAIRS.length) {
+                            confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
+                            alert('🎉 恭喜你！完成了所有历史记忆卡牌配对！考点掌握非常扎实！');
+                        }
+                    }, 500);
+                } else {
+                    // Match Fail - Flip back
+                    setTimeout(() => {
+                        first.cardEl.querySelector('.card-inner').classList.remove('flipped');
+                        second.cardEl.querySelector('.card-inner').classList.remove('flipped');
+                        flippedCards = [];
+                    }, 1000);
+                }
+            }
+        }
+
+        // Switch Game Tabs
+        function switchTab(tab) {
+            const btnMonopoly = document.getElementById('tab-monopoly');
+            const btnMatching = document.getElementById('tab-matching');
+            const secMonopoly = document.getElementById('game-monopoly');
+            const secMatching = document.getElementById('game-matching');
+
+            if (tab === 'monopoly') {
+                secMonopoly.classList.remove('hidden');
+                secMatching.classList.add('hidden');
+
+                btnMonopoly.className = 'flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-500 text-white shadow-amber-200 scale-105';
+                btnMatching.className = 'flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-100 text-amber-800 hover:bg-amber-200';
+            } else {
+                secMonopoly.classList.add('hidden');
+                secMatching.classList.remove('hidden');
+
+                btnMatching.className = 'flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-500 text-white shadow-amber-200 scale-105';
+                btnMonopoly.className = 'flex-1 max-w-[200px] py-3 px-4 rounded-2xl font-bold text-sm sm:text-base transition duration-200 shadow-md flex items-center justify-center gap-2 bg-amber-100 text-amber-800 hover:bg-amber-200';
+            }
+        }
+
+        // Toggle Custom Modal
+        function toggleCustomModal() {
+            const modal = document.getElementById('custom-modal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // Load Preset Questions
+        function loadPreset(key) {
+            if (PRESETS[key]) {
+                currentQuestions = [...PRESETS[key]];
+                document.getElementById('custom-questions-text').value = JSON.stringify(currentQuestions, null, 2);
+                alert(`已成功加载 ${key === 'kssr5' ? '马来西亚五年级历史' : '通用历史'} 题库！`);
+            }
+        }
+
+        // Save Custom Questions
+        function saveCustomQuestions() {
+            try {
+                const text = document.getElementById('custom-questions-text').value;
+                const parsed = JSON.parse(text);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    currentQuestions = parsed;
+                    alert('题目保存成功！新题目将在后续大富翁答题中生效。');
+                    toggleCustomModal();
+                } else {
+                    alert('请输入有效的题目数组格式！');
+                }
+            } catch (e) {
+                alert('JSON格式有误，请检查语法（例如是否漏掉了逗号或引号）。');
+            }
+        }
+
+        function resetQuestionsToDefault() {
+            loadPreset('kssr5');
+        }
+    </script>
+</body>
+</html>
